@@ -7,6 +7,7 @@
       <FILE id="MGjFhj" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
       <FILE id="MuEdBm" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
     </GROUP>
+    <FILE id="m2TcFP" name="IOMenuWindow.h" compile="0" resource="0" file="Source/IOMenuWindow.h"/>
   </MAINGROUP>
   <MODULES>
     <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
