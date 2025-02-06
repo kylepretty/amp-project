@@ -13,15 +13,24 @@ public:
             && !juce::RuntimePermissions::isGranted(juce::RuntimePermissions::recordAudio))
         {
             juce::RuntimePermissions::request(juce::RuntimePermissions::recordAudio,
-                [this](bool granted) { setAudioChannels(granted ? 2 : 0, 2); });
+                [this](bool granted) { setAudioChannels(granted ? 1 : 0, 2); });
         }
         else
         {
             setAudioChannels(1, 2);
         }
 
+        waveShaper.functionToUse = [](float sample) {
+            return sample / (std::abs(sample) + 1.0f);
+            };
+
         addAndMakeVisible(openMenu);
         openMenu.onClick = [this]() { openIOMenuWindow(); };
+
+        addAndMakeVisible(inputGainSlider);
+        inputGainSlider.setRange(0.0, 2.0, 0.01);
+        inputGainSlider.setValue(1.0);
+        inputGainSlider.onValueChange = [this]() { gain = inputGainSlider.getValue(); };
     }
 
     ~MainComponent() override
@@ -29,11 +38,24 @@ public:
         shutdownAudio();
     }
 
-    void prepareToPlay(int, double) override {}
+    void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override
+    {
+        juce::dsp::ProcessSpec spec;
+        spec.sampleRate = sampleRate;
+        spec.maximumBlockSize = samplesPerBlockExpected;
+        spec.numChannels = 1;
+
+        waveShaper.prepare(spec);
+    }
 
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override
     {
-        bufferToFill.clearActiveBufferRegion();
+        auto* leftChannel = bufferToFill.buffer->getWritePointer(0);
+
+        for (int sample = 0; sample < bufferToFill.numSamples; ++sample)
+        {
+            leftChannel[sample] = waveShaper.processSample(leftChannel[sample] * gain);
+        }
     }
 
     void releaseResources() override {}
@@ -46,11 +68,16 @@ public:
     void resized() override
     {
         openMenu.setBounds(10, 10, 150, 40);
+        inputGainSlider.setBounds(10, 60, 200, 40);
     }
 
 private:
-    juce::TextButton openMenu{"I/O Menu", "Open I/O Menu"};
+    juce::TextButton openMenu{ "I/O Menu", "Open I/O Menu" };
     juce::Component::SafePointer<IOMenuWindow> ioMenuWindow;
+    juce::dsp::WaveShaper<float> waveShaper;
+
+    juce::Slider inputGainSlider;
+    float gain = 1.0f;
 
     void openIOMenuWindow()
     {
