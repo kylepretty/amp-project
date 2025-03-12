@@ -2920,6 +2920,7 @@
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_gui_extra.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Source\IRProcessor.h" />
     <ClInclude Include="..\..\Source\MainComponent.h" />
     <ClInclude Include="..\..\Source\IOMenuWindow.h" />
     <ClInclude Include="..\..\..\..\..\..\Downloads\JUCE\modules\juce_audio_basics\audio_play_head\juce_AudioPlayHead.h" />

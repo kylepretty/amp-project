@@ -7496,6 +7496,9 @@
     <ClInclude Include="..\..\Source\WaveshaperProcessor.h">
       <Filter>amp-project\Source</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\IRProcessor.h">
+      <Filter>amp-project\Source</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\..\..\..\Downloads\JUCE\modules\juce_audio_devices\native\oboe\src\common\README.md">
