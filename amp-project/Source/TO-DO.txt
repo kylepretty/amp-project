@@ -1,0 +1,7 @@
+TO DO:
+
+- implement saving/loading profiles
+- implement additional effects
+- implement a default file path for IRs and allow user to shift between IRs in the folder
+- UI
+- test waveshaper functions. check 12ax7 function, etc.
