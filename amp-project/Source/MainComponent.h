@@ -12,6 +12,42 @@ public:
     {
         setSize(1280, 720);
 
+        // Cabinet IR selection ComboBox
+        addAndMakeVisible(cabinetIrSelector);
+        cabinetIrSelector.addItem("Select Cabinet IR", 1);
+        cabinetIrSelector.setSelectedId(1);
+        loadCabinetIRsFromFolder();
+        cabinetIrSelector.onChange = [this]() {
+            if (cabinetIrSelector.getSelectedId() == 1) {
+                irProcessor.resetCabinetIR(); // Reset when default is selected
+                juce::Logger::writeToLog("Cabinet IR reset to default (no IR)");
+            }
+            else if (cabinetIrSelector.getSelectedId() > 1) {
+                juce::File selectedFile = cabinetIrFiles[cabinetIrSelector.getSelectedId() - 2];
+                if (!irProcessor.loadCabinetIR(selectedFile)) {
+                    juce::Logger::writeToLog("Failed to load selected cabinet IR: " + selectedFile.getFullPathName());
+                }
+            }
+            };
+
+        // Reverb IR selection ComboBox
+        addAndMakeVisible(reverbIrSelector);
+        reverbIrSelector.addItem("Select Reverb IR", 1);
+        reverbIrSelector.setSelectedId(1);
+        loadReverbIRsFromFolder();
+        reverbIrSelector.onChange = [this]() {
+            if (reverbIrSelector.getSelectedId() == 1) {
+                irProcessor.resetReverbIR(); // Reset when default is selected
+                juce::Logger::writeToLog("Reverb IR reset to default (no IR)");
+            }
+            else if (reverbIrSelector.getSelectedId() > 1) {
+                juce::File selectedFile = reverbIrFiles[reverbIrSelector.getSelectedId() - 2];
+                if (!irProcessor.loadReverbIR(selectedFile)) {
+                    juce::Logger::writeToLog("Failed to load selected reverb IR: " + selectedFile.getFullPathName());
+                }
+            }
+            };
+
         if (juce::RuntimePermissions::isRequired(juce::RuntimePermissions::recordAudio)
             && !juce::RuntimePermissions::isGranted(juce::RuntimePermissions::recordAudio))
         {
@@ -23,7 +59,7 @@ public:
             setAudioChannels(1, 2);
         }
 
-        // UI Setup
+        // UI Setup (unchanged)
         addAndMakeVisible(openMenu);
         openMenu.onClick = [this]() { openIOMenuWindow(); };
 
@@ -47,7 +83,7 @@ public:
         outputGainLabel.setText("Output Gain", juce::dontSendNotification);
         outputGainLabel.attachToComponent(&outputGainSlider, true);
 
-        // EQ Sliders
+        // EQ Sliders (unchanged)
         addAndMakeVisible(lowShelfGainSlider);
         lowShelfGainSlider.setRange(-10.0, 3.5, 0.1);
         lowShelfGainSlider.setValue(0.0);
@@ -88,28 +124,6 @@ public:
         highShelf1410GainLabel.setText("High Shelf 1410 Hz (dB)", juce::dontSendNotification);
         highShelf1410GainLabel.attachToComponent(&highShelf1410GainSlider, true);
 
-        // Cabinet Mix Slider
-        addAndMakeVisible(cabinetMixSlider);
-        cabinetMixSlider.setRange(0.0, 1.0, 0.01);
-        cabinetMixSlider.setValue(1.0);
-        cabinetMixSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-        cabinetMixSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-        cabinetMixSlider.onValueChange = [this]() { irProcessor.setCabinetMix(cabinetMixSlider.getValue()); };
-        addAndMakeVisible(cabinetMixLabel);
-        cabinetMixLabel.setText("Cabinet Wet/Dry Mix", juce::dontSendNotification);
-        cabinetMixLabel.attachToComponent(&cabinetMixSlider, true);
-
-        // Cabinet Gain Slider
-        addAndMakeVisible(cabinetGainSlider);
-        cabinetGainSlider.setRange(-12.0, 12.0, 0.1);
-        cabinetGainSlider.setValue(0.0);
-        cabinetGainSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-        cabinetGainSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-        cabinetGainSlider.onValueChange = [this]() { irProcessor.setCabinetGain(cabinetGainSlider.getValue()); };
-        addAndMakeVisible(cabinetGainLabel);
-        cabinetGainLabel.setText("Cabinet Gain (dB)", juce::dontSendNotification);
-        cabinetGainLabel.attachToComponent(&cabinetGainSlider, true);
-
         // Reverb Gain Slider
         addAndMakeVisible(reverbGainSlider);
         reverbGainSlider.setRange(-12.0, 12.0, 0.1);
@@ -137,46 +151,29 @@ public:
         waveshaper.prepare(spec);
         eq.prepare(spec);
         irProcessor.prepare(spec);
-
-        // Load IRs with actual file paths
-        juce::File reverbFile("C:/Users/kylep/source/repos/amp-project/amp-project/Source/reverb_ir.wav");
-        juce::File cabinetFile("C:/Users/kylep/source/repos/amp-project/amp-project/Source/cabinet_ir.wav");
-        if (!irProcessor.loadReverbIR(reverbFile))
-            juce::Logger::writeToLog("Failed to load reverb IR");
-        if (!irProcessor.loadCabinetIR(cabinetFile))
-            juce::Logger::writeToLog("Failed to load cabinet IR");
     }
 
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override
     {
         juce::dsp::AudioBlock<float> block(*bufferToFill.buffer);
 
-        // Apply input gain
         for (size_t channel = 0; channel < block.getNumChannels(); ++channel) {
             juce::FloatVectorOperations::multiply(block.getChannelPointer(channel),
                 gain,
                 bufferToFill.numSamples);
         }
 
-        // Process first waveshaper
         waveshaper.processPreEQ(block);
-
-        // Process EQ
         eq.process(block);
-
-        // Process second waveshaper
         waveshaper.processPostEQ(block);
-
         irProcessor.process(block, true);
 
-        // Apply output gain
         for (size_t channel = 0; channel < block.getNumChannels(); ++channel) {
             juce::FloatVectorOperations::multiply(block.getChannelPointer(channel),
                 outputGain,
                 bufferToFill.numSamples);
         }
 
-        // Apply a limiter to prevent clipping
         for (size_t channel = 0; channel < block.getNumChannels(); ++channel) {
             auto* channelData = block.getChannelPointer(channel);
             for (int sample = 0; sample < bufferToFill.numSamples; ++sample) {
@@ -198,6 +195,11 @@ public:
         int sliderWidth = 200;
         int y = 10;
 
+        // Place both selectors at the top
+        cabinetIrSelector.setBounds(10, y, 300, 30);
+        reverbIrSelector.setBounds(320, y, 300, 30); // Positioned next to cabinet selector
+        y += 40;
+
         openMenu.setBounds(10, y, 150, 40);
         y += 50;
         inputGainSlider.setBounds(labelWidth, y, sliderWidth, 40);
@@ -212,10 +214,6 @@ public:
         y += 50;
         highShelf1410GainSlider.setBounds(labelWidth, y, sliderWidth, 40);
         y += 50;
-        cabinetMixSlider.setBounds(labelWidth, y, sliderWidth, 40);
-        y += 50;
-        cabinetGainSlider.setBounds(labelWidth, y, sliderWidth, 40);
-        y += 50;
         reverbGainSlider.setBounds(labelWidth, y, sliderWidth, 40);
     }
 
@@ -227,6 +225,13 @@ private:
     ToneStack eq;
     IRProcessor irProcessor;
 
+    // IR selectors
+    juce::ComboBox cabinetIrSelector;
+    juce::Array<juce::File> cabinetIrFiles;
+    juce::ComboBox reverbIrSelector;
+    juce::Array<juce::File> reverbIrFiles;
+
+    // Existing UI components
     juce::Slider inputGainSlider;
     juce::Label inputGainLabel;
     juce::Slider outputGainSlider;
@@ -239,11 +244,6 @@ private:
     juce::Label bellGainLabel;
     juce::Slider highShelf1410GainSlider;
     juce::Label highShelf1410GainLabel;
-
-    juce::Slider cabinetMixSlider;
-    juce::Label cabinetMixLabel;
-    juce::Slider cabinetGainSlider;
-    juce::Label cabinetGainLabel;
     juce::Slider reverbGainSlider;
     juce::Label reverbGainLabel;
 
@@ -257,6 +257,40 @@ private:
             auto* window = new IOMenuWindow("I/O Menu", deviceManager);
             ioMenuWindow = window;
             window->setVisible(true);
+        }
+    }
+
+    void loadCabinetIRsFromFolder()
+    {
+        juce::File irFolder("C:/Users/kylep/source/repos/amp-project/amp-project/Source/IRs/Cabinet");
+        if (!irFolder.exists() || !irFolder.isDirectory())
+        {
+            irFolder.createDirectory();
+            juce::Logger::writeToLog("Cabinet IR folder created or not found: " + irFolder.getFullPathName());
+            return;
+        }
+
+        cabinetIrFiles = irFolder.findChildFiles(juce::File::findFiles, false, "*.wav");
+        for (int i = 0; i < cabinetIrFiles.size(); ++i)
+        {
+            cabinetIrSelector.addItem(cabinetIrFiles[i].getFileNameWithoutExtension(), i + 2);
+        }
+    }
+
+    void loadReverbIRsFromFolder()
+    {
+        juce::File irFolder("C:/Users/kylep/source/repos/amp-project/amp-project/Source/IRs/Reverb");
+        if (!irFolder.exists() || !irFolder.isDirectory())
+        {
+            irFolder.createDirectory();
+            juce::Logger::writeToLog("Reverb IR folder created or not found: " + irFolder.getFullPathName());
+            return;
+        }
+
+        reverbIrFiles = irFolder.findChildFiles(juce::File::findFiles, false, "*.wav");
+        for (int i = 0; i < reverbIrFiles.size(); ++i)
+        {
+            reverbIrSelector.addItem(reverbIrFiles[i].getFileNameWithoutExtension(), i + 2);
         }
     }
 
