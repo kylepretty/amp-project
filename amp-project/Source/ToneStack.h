@@ -10,11 +10,9 @@ public:
     {
         sampleRate = spec.sampleRate;
 
-        lowCutFilter.prepare(spec);
-        lowShelfFilter.prepare(spec);
-        highShelfFilter800.prepare(spec);
-        bellFilter800.prepare(spec);
-        highShelfFilter1410.prepare(spec);
+        low.prepare(spec);
+        mid.prepare(spec);
+        high.prepare(spec);
 
         updateFilters();
     }
@@ -22,82 +20,61 @@ public:
     void process(juce::dsp::AudioBlock<float>& block)
     {
         auto context = juce::dsp::ProcessContextReplacing<float>(block);
-        lowCutFilter.process(context);
-        lowShelfFilter.process(context);
-        highShelfFilter800.process(context);
-        bellFilter800.process(context);
-        highShelfFilter1410.process(context);
+        low.process(context);
+        mid.process(context);
+        high.process(context);
     }
 
-    void updateLowShelf(float gainDb)
-    {
-        lowShelfGain = juce::Decibels::decibelsToGain(gainDb);
-        updateLowShelfFilter();
-    }
+    void setlowFrequency(float frequency) { lowFrequency = frequency; updateLow(); }
+    void setlowQ(float q) { lowQ = q; updateLow(); }
 
-    void updateHighShelf800(float gainDb)
-    {
-        highShelf800Gain = juce::Decibels::decibelsToGain(gainDb);
-        updateHighShelf800Filter();
-    }
+    void setmidFrequency(float frequency) { midFrequency = frequency; updateMid(); }
+    void setmidQ(float q) { midQ = q; updateMid(); }
+    void updatemidGain(float gainDb) { midGain = juce::Decibels::decibelsToGain(gainDb); updateMid(); }
 
-    void updateBellGain(float gainDb)
-    {
-        bell800Gain = juce::Decibels::decibelsToGain(gainDb);
-        updateBell800Filter();
-    }
-
-    void updateHighShelf1410(float gainDb)
-    {
-        highShelf1410Gain = juce::Decibels::decibelsToGain(gainDb);
-        updateHighShelf1410Filter();
-    }
+    void sethighFrequency(float frequency) { highFrequency = frequency; updateHigh(); }
+    void sethighQ(float q) { highQ = q; updateHigh(); }
+    void updatehighGain(float gainDb) { highGain = juce::Decibels::decibelsToGain(gainDb); updateHigh(); }
 
 private:
     void updateFilters()
     {
-        updateLowCutFilter();
-        updateLowShelfFilter();
-        updateHighShelf800Filter();
-        updateBell800Filter();
-        updateHighShelf1410Filter();
+        updateLow();
+        updateMid();
+        updateHigh();
     }
 
-    void updateLowCutFilter()
+    void updateLow()
     {
-        *lowCutFilter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 19.4f, 0.24f);
+        *low.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, lowFrequency, lowQ);
     }
 
-    void updateLowShelfFilter()
+    void updateMid()
     {
-        *lowShelfFilter.state = *juce::dsp::IIR::Coefficients<float>::makeLowShelf(sampleRate, 469.0f, 0.67f, lowShelfGain);
+        *mid.state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate, midFrequency, midQ, midGain);
     }
 
-    void updateHighShelf800Filter()
+    void updateHigh()
     {
-        *highShelfFilter800.state = *juce::dsp::IIR::Coefficients<float>::makeHighShelf(sampleRate, 800.0f, 0.71f, highShelf800Gain);
-    }
-
-    void updateBell800Filter()
-    {
-        *bellFilter800.state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate, 800.0f, 0.71f, bell800Gain);
-    }
-
-    void updateHighShelf1410Filter()
-    {
-        *highShelfFilter1410.state = *juce::dsp::IIR::Coefficients<float>::makeHighShelf(sampleRate, 1410.0f, 0.70f, highShelf1410Gain);
+        *high.state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate, highFrequency, highQ, highGain);
     }
 
     double sampleRate = 44100.0;
 
-    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> lowCutFilter;
-    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> lowShelfFilter;
+    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> low;
+    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> mid;
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> highShelfFilter800;
-    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> bellFilter800;
-    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> highShelfFilter1410;
+    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> high;
 
-    float lowShelfGain = 1.0f;
-    float highShelf800Gain = 1.0f;
-    float bell800Gain = 1.0f;
-    float highShelf1410Gain = 1.0f;
+    // Filter parameter default values
+    float lowFrequency = 15.0f;
+    float lowQ = 0.23f;
+
+    float midFrequency = 420.0f;
+    float midQ = 0.29f;
+    float midGain = -9.0f;
+
+    float highFrequency = 415.0f;
+    float highQ = 0.71f;
+    float highGain = -0.5f;
 };

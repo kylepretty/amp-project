@@ -1,15 +1,14 @@
 #pragma once
 #include <JuceHeader.h>
 
-//==============================================================================
 class IRProcessor
 {
 public:
     IRProcessor()
     {
         dryDelayLine.setMaximumDelayInSamples(8192);
-        cabinetBypass = true; // Start bypassed
-        reverbBypass = true;  // Start bypassed
+        cabinetBypass = true;
+        reverbBypass = true;
     }
 
     void prepare(const juce::dsp::ProcessSpec& spec)
@@ -41,7 +40,7 @@ public:
             0,
             juce::dsp::Convolution::Normalise::yes
         );
-        cabinetBypass = false; // Enable processing
+        cabinetBypass = false;
         updateLatencyCompensation();
         juce::Logger::writeToLog("Cabinet IR loaded and normalized: " + file.getFullPathName());
         return true;
@@ -61,7 +60,7 @@ public:
             0,
             juce::dsp::Convolution::Normalise::yes
         );
-        reverbBypass = false; // Enable processing
+        reverbBypass = false;
         updateLatencyCompensation();
         juce::Logger::writeToLog("Reverb IR loaded and normalized: " + file.getFullPathName());
         return true;
@@ -69,13 +68,13 @@ public:
 
     void resetCabinetIR()
     {
-        cabinetBypass = true; // Bypass cabinet convolution
+        cabinetBypass = true;
         updateLatencyCompensation();
     }
 
     void resetReverbIR()
     {
-        reverbBypass = true; // Bypass reverb convolution
+        reverbBypass = true;
         updateLatencyCompensation();
     }
 
@@ -90,13 +89,11 @@ public:
 
         float reverbGain = juce::Decibels::decibelsToGain(reverbGainSmoothed.getNextValue());
 
-        // Store dry signal and delay it
         juce::dsp::AudioBlock<float> dryBlock(dryBuffer);
         dryBlock.copyFrom(block);
         juce::dsp::ProcessContextReplacing<float> dryContext(dryBlock);
         dryDelayLine.process(dryContext);
 
-        // Process reverb convolution (if not bypassed)
         juce::dsp::AudioBlock<float> reverbWetBlock(reverbWetBuffer);
         reverbWetBlock.copyFrom(block);
         if (!reverbBypass)
@@ -105,7 +102,6 @@ public:
             convolutionReverb.process(reverbContext);
         }
 
-        // Combine dry signal with reverb wet signal
         for (size_t channel = 0; channel < numChannels; ++channel)
         {
             auto* dryData = dryBlock.getChannelPointer(channel);
@@ -117,7 +113,6 @@ public:
             }
         }
 
-        // Process cabinet convolution (if not bypassed)
         juce::dsp::AudioBlock<float> cabinetWetBlock(cabinetWetBuffer);
         cabinetWetBlock.copyFrom(reverbWetBlock);
         if (!cabinetBypass)
@@ -126,7 +121,6 @@ public:
             convolutionCabinet.process(cabinetContext);
         }
 
-        // Output the final signal
         for (size_t channel = 0; channel < numChannels; ++channel)
         {
             auto* cabWetData = cabinetWetBlock.getChannelPointer(channel);
@@ -158,8 +152,8 @@ private:
     juce::SmoothedValue<float> cabinetMixSmoothed{ 1.0f };
     juce::SmoothedValue<float> cabinetGainSmoothed{ 0.0f };
     juce::SmoothedValue<float> reverbGainSmoothed{ 0.0f };
-    bool cabinetBypass; // Flag to bypass cabinet convolution
-    bool reverbBypass;  // Flag to bypass reverb convolution
+    bool cabinetBypass;
+    bool reverbBypass;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(IRProcessor)
 };
