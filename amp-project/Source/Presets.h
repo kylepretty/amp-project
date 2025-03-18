@@ -6,66 +6,66 @@ extern float tanhClip(float);
 
 struct Preset {
     struct EQBand {
-        float frequency;    // Center frequency in Hz
-        float q;            // Quality factor
-        float min;      // Minimum gain in dB
-        float max;      // Maximum gain in dB
-        float default;  // Default gain in dB
+        float frequency;
+        float q;
+        float min;
+        float max;
+        float default;
     };
     EQBand low;
     EQBand mid;
     EQBand high;
-    float(*preEQFunction)(float);  // Function pointer for pre-EQ waveshaping
-    float(*postEQFunction)(float); // Function pointer for post-EQ waveshaping
-    float inputGainMin;            // Minimum input gain (linear scale)
-    float inputGainMax;            // Maximum input gain (linear scale)
-    float inputGainDefault;        // Default input gain (linear scale)
-    float outputGainMin;           // Minimum output gain (linear scale)
-    float outputGainMax;           // Maximum output gain (linear scale)
-    float outputGainDefault;       // Default output gain (linear scale)
+    float(*preEQFunction)(float);
+    float(*postEQFunction)(float);
+    float inputGainMin;
+    float inputGainMax;
+    float inputGainDefault;
+    float outputGainMin;
+    float outputGainMax;
+    float outputGainDefault;
 };
 
 const Preset presets[3] = {
-    // Preset 1: Clean Tone (index 0)
+    // Preset 1: Marshall Tone (index 0)
     {
-        {15.0f, 0.16f, 0.10f, 0.29f, 0.16f},   // low
-        {420.0f, 0.71f, -14.0f, -8.0f, -10.0f},    // mid
-        {415.0f, 0.29f, -15.0f, -0.5f, -4.8f}, // high
-        softClip,  // Pre EQ: soft clipping
-        softClip,  // Post EQ: soft clipping
-        0.0f,      // inputGainMin: no attenuation
-        2.0f,      // inputGainMax: moderate boost
-        1.0f,      // inputGainDefault: unity gain
-        0.0f,      // outputGainMin: no attenuation
-        4.0f,      // outputGainMax: significant boost
-        1.0f       // outputGainDefault: unity gain
+        {15.0f, 0.16f, 0.10f, 0.29f, 0.16f},   // low (freq, q, min, max, default)
+        {420.0f, 0.71f, -16.0f, -4.0f, -10.0f},    // mid (freq, q, min, max, default)
+        {415.0f, 0.29f, -15.0f, -0.5f, -8.0f}, // high (freq, q, min, max, default)
+        softClip,  // pre EQ
+        softClip,  // post EQ
+        1.0f,      // inputGainMin
+        12.0f,      // inputGainMax
+        1.0f,      // inputGainDefault
+        1.0f,      // outputGainMin
+        16.0f,      // outputGainMax
+        4.0f       // outputGainDefault
     },
-    // Preset 2: Crunch Tone (index 1)
+    // Preset 2: Vox Tone (index 1)
     {
-        {15.0f, 0.16f, 0.10f, 0.16f, 0.29f},   // low
-        {420.0f, 0.71f, -14.0f, -10.0f, -8.0f},    // mid
-        {415.0f, 0.29f, -15.0f, -4.8f, -0.5f}, // high
-        tanhClip,  // Pre EQ: smooth distortion
-        softClip,  // Post EQ: gentle clipping
-        0.0f,      // inputGainMin: no attenuation
-        2.0f,      // inputGainMax: moderate boost
-        1.5f,      // inputGainDefault: slight boost for crunch
-        0.0f,      // outputGainMin: no attenuation
-        4.0f,      // outputGainMax: significant boost
-        1.2f       // outputGainDefault: slight boost for presence
+        {20.0f, 0.16f, 0.03f, 0.30f, 0.16f},   // low (freq, q, min, max, default)
+        {800.0f, 0.26f, -21.5f, -21.5f, -21.5f},    // mid (freq, q, min, max, default)
+        {800.0f, 0.1f, -12.0f, 3.0f, -4.5f}, // high (freq, q, min, max, default)
+        softClip,  // pre EQ
+        softClip,  // post EQ
+        1.0f,      // inputGainMin
+        6.0f,      // inputGainMax
+        1.0f,      // inputGainDefault
+        1.0f,      // outputGainMin
+        16.0f,      // outputGainMax
+        4.0f       // outputGainDefault
     },
-    // Preset 3: Lead Tone (index 2)
+    // Preset 3: Fender Tone (index 2)
     {
-        {15.0f, 0.16f, 0.10f, 0.16f, 0.29f},   // low
-        {420.0f, 0.71f, -14.0f, -10.0f, -8.0f},    // mid
-        {415.0f, 0.29f, -15.0f, -4.8f, -0.5f}, // high
-        hardClip,  // Pre EQ: aggressive clipping
-        tanhClip,  // Post EQ: smooth clipping
-        0.0f,      // inputGainMin: no attenuation
-        2.0f,      // inputGainMax: moderate boost
-        1.8f,      // inputGainDefault: higher boost for lead drive
-        0.0f,      // outputGainMin: no attenuation
-        4.0f,      // outputGainMax: significant boost
-        1.5f       // outputGainDefault: boost for sustain
+        {10.0f, 0.09f, 0.02f, 0.16f, 0.09f},   // low (freq, q, min, max, default)
+        {300.0f, 0.807f, -28.0f, -18.0f, -23.0f},    // mid (freq, q, min, max, default)
+        {350.0f, 1.0f, -24.0f, -3.0f, -11.0f}, // high (freq, q, min, max, default)
+        softClip,  // pre EQ
+        softClip,  // post EQ
+        1.0f,      // inputGainMin
+        4.0f,      // inputGainMax
+        1.0f,      // inputGainDefault
+        1.0f,      // outputGainMin
+        16.0f,      // outputGainMax
+        4.0f       // outputGainDefault
     }
 };

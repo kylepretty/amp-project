@@ -56,14 +56,13 @@ private:
 
     void updateHigh()
     {
-        *high.state = *juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate, highFrequency, highQ, highGain);
+        *high.state = *juce::dsp::IIR::Coefficients<float>::makeHighShelf(sampleRate, highFrequency, highQ, highGain);
     }
 
     double sampleRate = 44100.0;
 
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> low;
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> mid;
-    juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> highShelfFilter800;
     juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>, juce::dsp::IIR::Coefficients<float>> high;
 
     // Filter parameter default values

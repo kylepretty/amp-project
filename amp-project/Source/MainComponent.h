@@ -27,15 +27,15 @@ public:
 
         // UI Setup
         addAndMakeVisible(preset1Button);
-        preset1Button.setButtonText("Clean");
+        preset1Button.setButtonText("Marshall");
         preset1Button.onClick = [this]() { setPreset(0); };
 
         addAndMakeVisible(preset2Button);
-        preset2Button.setButtonText("Crunch");
+        preset2Button.setButtonText("Vox");
         preset2Button.onClick = [this]() { setPreset(1); };
 
         addAndMakeVisible(preset3Button);
-        preset3Button.setButtonText("Lead");
+        preset3Button.setButtonText("Fender");
         preset3Button.onClick = [this]() { setPreset(2); };
 
         addAndMakeVisible(cabinetIrSelector);
