@@ -26,17 +26,29 @@ public:
         }
 
         // UI Setup
-        addAndMakeVisible(preset1Button);
-        preset1Button.setButtonText("Marshall");
-        preset1Button.onClick = [this]() { setPreset(0); };
+        // addAndMakeVisible(preset1Button);
+        // preset1Button.setButtonText("Marshall");
+        // preset1Button.onClick = [this]() { setPreset(0); };
 
-        addAndMakeVisible(preset2Button);
-        preset2Button.setButtonText("Vox");
-        preset2Button.onClick = [this]() { setPreset(1); };
+        // addAndMakeVisible(preset2Button);
+        // preset2Button.setButtonText("Vox");
+        // preset2Button.onClick = [this]() { setPreset(1); };
 
-        addAndMakeVisible(preset3Button);
-        preset3Button.setButtonText("Fender");
-        preset3Button.onClick = [this]() { setPreset(2); };
+        // addAndMakeVisible(preset3Button);
+        // preset3Button.setButtonText("Fender");
+        // preset3Button.onClick = [this]() { setPreset(2); };
+
+        addAndMakeVisible(presetSelector);
+        presetSelector.addItem("Marshall", 1);
+        presetSelector.addItem("Vox", 2);
+        presetSelector.addItem("Fender", 3);
+        presetSelector.setSelectedId(1); // Optional: default selection
+
+        presetSelector.onChange = [this]() {
+            int selectedIndex = presetSelector.getSelectedId() - 1; // Presets are 0-indexed
+            setPreset(selectedIndex);
+        };
+
 
         addAndMakeVisible(cabinetIrSelector);
         cabinetIrSelector.addItem("Select Cabinet IR", 1);
@@ -125,6 +137,26 @@ public:
         reverbGainLabel.setText("Reverb Gain (dB)", juce::dontSendNotification);
         reverbGainLabel.attachToComponent(&reverbGainSlider, true);
 
+        addAndMakeVisible(inputMeter);
+        inputMeter.setPercentageDisplay(false);
+        inputMeter.setColour(juce::ProgressBar::foregroundColourId, juce::Colours::limegreen);
+
+        addAndMakeVisible(outputMeter);
+        outputMeter.setPercentageDisplay(false);
+        outputMeter.setColour(juce::ProgressBar::foregroundColourId, juce::Colours::orange);
+
+        smoothedInput.reset(0.1);
+        smoothedOutput.reset(0.1);
+
+        addAndMakeVisible(inputMeterLabel);
+        inputMeterLabel.setText("Input Level", juce::dontSendNotification);
+        inputMeterLabel.setJustificationType(juce::Justification::centred);
+
+        addAndMakeVisible(outputMeterLabel);
+        outputMeterLabel.setText("Output Level", juce::dontSendNotification);
+        outputMeterLabel.setJustificationType(juce::Justification::centred);
+
+
         setPreset(0);
     }
 
@@ -149,6 +181,11 @@ public:
     {
         juce::dsp::AudioBlock<float> block(*bufferToFill.buffer);
 
+        auto* buffer = bufferToFill.buffer;
+        float inputRMS = buffer->getRMSLevel(0, bufferToFill.startSample, bufferToFill.numSamples);
+        smoothedInput.setTargetValue(inputRMS);
+        inputLevel = smoothedInput.getNextValue();
+
         for (size_t channel = 0; channel < block.getNumChannels(); ++channel) {
             juce::FloatVectorOperations::multiply(block.getChannelPointer(channel),
                 gain,
@@ -165,6 +202,10 @@ public:
                 outputGain,
                 bufferToFill.numSamples);
         }
+
+        float outputRMS = buffer->getRMSLevel(0, bufferToFill.startSample, bufferToFill.numSamples);
+        smoothedOutput.setTargetValue(outputRMS);
+        outputLevel = smoothedOutput.getNextValue();    
 
         for (size_t channel = 0; channel < block.getNumChannels(); ++channel) {
             auto* channelData = block.getChannelPointer(channel);
@@ -187,9 +228,9 @@ public:
         int sliderWidth = 200;
         int y = 10;
 
-        preset1Button.setBounds(10, y, 100, 30);
-        preset2Button.setBounds(120, y, 100, 30);
-        preset3Button.setBounds(230, y, 100, 30);
+        // preset1Button.setBounds(10, y, 100, 30);
+        // preset2Button.setBounds(120, y, 100, 30);
+        // preset3Button.setBounds(230, y, 100, 30);
         cabinetIrSelector.setBounds(445, y, 300, 30);
         reverbIrSelector.setBounds(755, y, 300, 30);
         openMenu.setBounds(1170, y, 100, 30);
@@ -208,9 +249,26 @@ public:
         y -= 150;
         labelWidth += 400;
         reverbGainSlider.setBounds(labelWidth, y, sliderWidth, 80);
+
+        inputMeter.setBounds(20, 650, 200, 20);
+        outputMeter.setBounds(240, 650, 200, 20);
+        inputMeterLabel.setBounds(20, 630, 200, 20);
+        outputMeterLabel.setBounds(240, 630, 200, 20);
+        presetSelector.setBounds(10, 10, 300, 30);
+
     }
 
 private:
+
+    double inputLevel = 0.0f;
+    double outputLevel = 0.0f;
+    juce::ProgressBar inputMeter { inputLevel };
+    juce::ProgressBar outputMeter { outputLevel };
+    juce::SmoothedValue<float> smoothedInput { 0.0f }, smoothedOutput { 0.0f };
+    juce::Label inputMeterLabel;
+    juce::Label outputMeterLabel;
+    juce::ComboBox presetSelector;
+
     juce::TextButton openMenu{ "I/O Menu", "Open I/O Menu" };
     juce::Component::SafePointer<IOMenuWindow> ioMenuWindow;
 
