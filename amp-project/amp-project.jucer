@@ -4,6 +4,9 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="cw62cm" name="amp-project">
     <GROUP id="{0D7403C6-6229-1173-4FAA-566E1445638E}" name="Source">
+      <FILE id="Hhgr4Z" name="KnobTexture.png" compile="0" resource="1" file="Source/KnobTexture.png"/>
+      <FILE id="iiaQNg" name="AmpBackground.png" compile="0" resource="1"
+            file="Source/AmpBackground.png"/>
       <FILE id="MGjFhj" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
       <FILE id="MuEdBm" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="m2TcFP" name="IOMenuWindow.h" compile="0" resource="0" file="Source/IOMenuWindow.h"/>

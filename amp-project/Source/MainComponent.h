@@ -7,6 +7,7 @@
 #include "Presets.h"
 #include "TunerComponent.h"
 #include <vector>
+#include "CustomKnobLook.h"
 
 class MainComponent : public juce::AudioAppComponent
 {
@@ -26,6 +27,10 @@ public:
         {
             setAudioChannels(1, 2);
         }
+
+        backgroundTexture = juce::ImageCache::getFromMemory(
+            BinaryData::AmpBackground_png,
+            BinaryData::AmpBackground_pngSize);
 
         // UI Setup
      
@@ -88,7 +93,7 @@ public:
         inputGainSlider.onValueChange = [this]() { gain = inputGainSlider.getValue(); };
         addAndMakeVisible(inputGainLabel);
         inputGainLabel.setText("Input Gain", juce::dontSendNotification);
-        inputGainLabel.attachToComponent(&inputGainSlider, true);
+        styleLabel(inputGainLabel);
 
         addAndMakeVisible(outputGainSlider);
         outputGainSlider.setSliderStyle(juce::Slider::Rotary);
@@ -96,7 +101,7 @@ public:
         outputGainSlider.onValueChange = [this]() { outputGain = outputGainSlider.getValue(); };
         addAndMakeVisible(outputGainLabel);
         outputGainLabel.setText("Output Gain", juce::dontSendNotification);
-        outputGainLabel.attachToComponent(&outputGainSlider, true);
+        styleLabel(outputGainLabel);
 
         addAndMakeVisible(lowQSlider);
         lowQSlider.setSliderStyle(juce::Slider::Rotary);
@@ -104,7 +109,7 @@ public:
         lowQSlider.onValueChange = [this]() { eq.setlowQ(lowQSlider.getValue()); };
         addAndMakeVisible(lowQLabel);
         lowQLabel.setText("Low Q", juce::dontSendNotification);
-        lowQLabel.attachToComponent(&lowQSlider, true);
+        styleLabel(lowQLabel);
 
         addAndMakeVisible(midGainSlider);
         midGainSlider.setSliderStyle(juce::Slider::Rotary);
@@ -112,7 +117,7 @@ public:
         midGainSlider.onValueChange = [this]() { eq.updatemidGain(midGainSlider.getValue()); };
         addAndMakeVisible(midGainLabel);
         midGainLabel.setText("Mid Gain", juce::dontSendNotification);
-        midGainLabel.attachToComponent(&midGainSlider, true);
+        styleLabel(midGainLabel);
 
         addAndMakeVisible(highGainSlider);
         highGainSlider.setSliderStyle(juce::Slider::Rotary);
@@ -120,7 +125,7 @@ public:
         highGainSlider.onValueChange = [this]() { eq.updatehighGain(highGainSlider.getValue()); };
         addAndMakeVisible(highGainLabel);
         highGainLabel.setText("High Gain", juce::dontSendNotification);
-        highGainLabel.attachToComponent(&highGainSlider, true);
+        styleLabel(highGainLabel);
 
         addAndMakeVisible(reverbGainSlider);
         reverbGainSlider.setRange(-12.0, 12.0, 0.1);
@@ -130,7 +135,7 @@ public:
         reverbGainSlider.onValueChange = [this]() { irProcessor.setReverbGain(reverbGainSlider.getValue()); };
         addAndMakeVisible(reverbGainLabel);
         reverbGainLabel.setText("Reverb Gain (dB)", juce::dontSendNotification);
-        reverbGainLabel.attachToComponent(&reverbGainSlider, true);
+        styleLabel(reverbGainLabel);
 
         addAndMakeVisible(inputMeter);
         inputMeter.setPercentageDisplay(false);
@@ -146,17 +151,31 @@ public:
         addAndMakeVisible(inputMeterLabel);
         inputMeterLabel.setText("Input Level", juce::dontSendNotification);
         inputMeterLabel.setJustificationType(juce::Justification::centred);
+        styleLabel(inputMeterLabel);
 
         addAndMakeVisible(outputMeterLabel);
         outputMeterLabel.setText("Output Level", juce::dontSendNotification);
         outputMeterLabel.setJustificationType(juce::Justification::centred);
+        styleLabel(outputMeterLabel);
 
+        inputGainSlider.setLookAndFeel(&knobLook);
+        outputGainSlider.setLookAndFeel(&knobLook);
+        lowQSlider.setLookAndFeel(&knobLook);
+        midGainSlider.setLookAndFeel(&knobLook);
+        highGainSlider.setLookAndFeel(&knobLook);
+        reverbGainSlider.setLookAndFeel(&knobLook);        
 
         setPreset(0);
     }
 
     ~MainComponent() override
     {
+        inputGainSlider.setLookAndFeel(nullptr);
+        outputGainSlider.setLookAndFeel(nullptr);
+        lowQSlider.setLookAndFeel(nullptr);
+        midGainSlider.setLookAndFeel(nullptr);
+        highGainSlider.setLookAndFeel(nullptr);
+        reverbGainSlider.setLookAndFeel(nullptr);
         shutdownAudio();
     }
 
@@ -302,47 +321,97 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+        // Draw background
+        if (backgroundTexture.isValid())
+            g.drawImage(backgroundTexture, getLocalBounds().toFloat());
+        else
+            g.fillAll(juce::Colours::darkslategrey); // fallback color
+    
+        // Draw tuner panel if tuner is visible
+        if (tunerDisplay.isVisible())
+        {
+            auto bounds = tunerDisplay.getBounds().toFloat().expanded(10.0f);
+    
+            g.setColour(juce::Colours::black.withAlpha(0.6f));
+            g.fillRoundedRectangle(bounds, 12.0f);
+    
+            g.setColour(juce::Colours::darkgrey);
+            g.drawRoundedRectangle(bounds, 12.0f, 2.0f);
+        }
     }
+    
 
     void resized() override
     {
-        int labelWidth = 150;
         int sliderWidth = 200;
-        int y = 10;
-
-        // preset1Button.setBounds(10, y, 100, 30);
-        // preset2Button.setBounds(120, y, 100, 30);
-        // preset3Button.setBounds(230, y, 100, 30);
-        cabinetIrSelector.setBounds(445, y, 300, 30);
-        reverbIrSelector.setBounds(755, y, 300, 30);
-        openMenu.setBounds(1170, y, 100, 30);
-
-        y += 270;
-        inputGainSlider.setBounds(labelWidth, y, sliderWidth, 80);
-        y += 100;
-        outputGainSlider.setBounds(labelWidth, y, sliderWidth, 80);
-        labelWidth += 400;
-        y -= 200;
-        lowQSlider.setBounds(labelWidth, y, sliderWidth, 80);
-        y += 100;
-        midGainSlider.setBounds(labelWidth, y, sliderWidth, 80);
-        y += 100;
-        highGainSlider.setBounds(labelWidth, y, sliderWidth, 80);
-        y -= 150;
-        labelWidth += 400;
-        reverbGainSlider.setBounds(labelWidth, y, sliderWidth, 80);
-
+        int labelBoxWidth = 160;
+        int labelBoxHeight = 24;
+        int labelSpacing = 10;
+        int columnSpacing = 380;
+        int rowSpacing = 220;
+        int startX = 200;
+        int startY = 100;
+    
+        // LEFT COLUMN
+        inputGainSlider.setBounds(startX, startY, sliderWidth, sliderWidth);
+        inputGainLabel.setBounds(startX - labelBoxWidth - labelSpacing,
+                                 startY + sliderWidth / 2 - labelBoxHeight / 2,
+                                 labelBoxWidth, labelBoxHeight);
+    
+        outputGainSlider.setBounds(startX, startY + rowSpacing, sliderWidth, sliderWidth);
+        outputGainLabel.setBounds(startX - labelBoxWidth - labelSpacing,
+                                  startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
+                                  labelBoxWidth, labelBoxHeight);
+    
+        // MIDDLE COLUMN
+        int midX = startX + columnSpacing;
+    
+        midGainSlider.setBounds(midX, startY, sliderWidth, sliderWidth);
+        midGainLabel.setBounds(midX - labelBoxWidth - labelSpacing,
+                               startY + sliderWidth / 2 - labelBoxHeight / 2,
+                               labelBoxWidth, labelBoxHeight);
+    
+        highGainSlider.setBounds(midX, startY + rowSpacing, sliderWidth, sliderWidth);
+        highGainLabel.setBounds(midX - labelBoxWidth - labelSpacing,
+                                startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
+                                labelBoxWidth, labelBoxHeight);
+    
+        // RIGHT COLUMN
+        int rightX = midX + columnSpacing;
+    
+        lowQSlider.setBounds(rightX, startY, sliderWidth, sliderWidth);
+        lowQLabel.setBounds(rightX - labelBoxWidth - labelSpacing,
+                            startY + sliderWidth / 2 - labelBoxHeight / 2,
+                            labelBoxWidth, labelBoxHeight);
+    
+        reverbGainSlider.setBounds(rightX, startY + rowSpacing, sliderWidth, sliderWidth);
+        reverbGainLabel.setBounds(rightX - labelBoxWidth - labelSpacing,
+                                  startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
+                                  labelBoxWidth, labelBoxHeight);
+    
+        // TOP MENU
+        int menuY = 10;
+        cabinetIrSelector.setBounds(445, menuY, 300, 30);
+        reverbIrSelector.setBounds(755, menuY, 300, 30);
+        openMenu.setBounds(1170, menuY, 100, 30);
+        presetSelector.setBounds(10, menuY, 300, 30);
+    
+        // METERS (bottom)
         inputMeter.setBounds(20, 650, 200, 20);
         outputMeter.setBounds(240, 650, 200, 20);
         inputMeterLabel.setBounds(20, 630, 200, 20);
         outputMeterLabel.setBounds(240, 630, 200, 20);
-        presetSelector.setBounds(10, 10, 300, 30);
-
-        tunerDisplay.setBounds(490, 260, 300, 200);
+    
+        // Tuner (if visible)
+        tunerDisplay.setBounds(440, 200, 420, 280);
     }
-
+    
+    
 private:
+
+    juce::Image backgroundTexture;
+
+    CustomKnobLook knobLook;
 
     int tunerWritePosition = 0;
     float lastStablePitch = 0.0f;
@@ -392,6 +461,20 @@ private:
 
     float gain = 1.0f;
     float outputGain = 1.0f;
+
+    void styleLabel(juce::Label& label)
+    {
+        label.setJustificationType(juce::Justification::centred);
+        label.setFont(juce::Font("Arial", 15.0f, juce::Font::bold));
+        
+        // Make it opaque with dark background
+        label.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.6f));
+        label.setColour(juce::Label::textColourId, juce::Colours::white);
+        label.setColour(juce::Label::outlineColourId, juce::Colours::darkgrey);
+    
+        // Optional: enable border radius if you want rounded corners
+        label.setBorderSize(juce::BorderSize<int>(4)); // top/bottom/left/right padding
+    }
 
     float detectPitchYIN(const float* buffer, int numSamples, float sampleRate)
     {
@@ -494,6 +577,7 @@ private:
         if (index == 3)  // Tuner is index 3 (0-based)
         {
             tunerDisplay.setVisible(true);
+            repaint();
 
             // Optionally disable audio processing
             gain = 0.0f;
@@ -506,6 +590,13 @@ private:
             midGainSlider.setVisible(false);
             highGainSlider.setVisible(false);
             reverbGainSlider.setVisible(false);
+
+            inputGainLabel.setVisible(false);
+            outputGainLabel.setVisible(false);
+            lowQLabel.setVisible(false);
+            midGainLabel.setVisible(false);
+            highGainLabel.setVisible(false);
+            reverbGainLabel.setVisible(false);
 
             return;
         }
