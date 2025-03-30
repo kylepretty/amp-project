@@ -5,6 +5,8 @@
 #include "WaveshaperProcessor.h"
 #include "IRProcessor.h"
 #include "Presets.h"
+#include "TunerComponent.h"
+#include <vector>
 
 class MainComponent : public juce::AudioAppComponent
 {
@@ -26,23 +28,12 @@ public:
         }
 
         // UI Setup
-        // addAndMakeVisible(preset1Button);
-        // preset1Button.setButtonText("Marshall");
-        // preset1Button.onClick = [this]() { setPreset(0); };
-
-        // addAndMakeVisible(preset2Button);
-        // preset2Button.setButtonText("Vox");
-        // preset2Button.onClick = [this]() { setPreset(1); };
-
-        // addAndMakeVisible(preset3Button);
-        // preset3Button.setButtonText("Fender");
-        // preset3Button.onClick = [this]() { setPreset(2); };
-
+     
         addAndMakeVisible(presetSelector);
         presetSelector.addItem("Marshall", 1);
         presetSelector.addItem("Vox", 2);
         presetSelector.addItem("Fender", 3);
-        presetSelector.setSelectedId(1); // Optional: default selection
+        presetSelector.addItem("Tuner", 4); 
 
         presetSelector.onChange = [this]() {
             int selectedIndex = presetSelector.getSelectedId() - 1; // Presets are 0-indexed
@@ -83,6 +74,10 @@ public:
                 }
             }
             };
+        
+        addAndMakeVisible(tunerDisplay);
+        tunerDisplay.setVisible(false);
+        smoothedPitch.reset(0.05);   
 
         addAndMakeVisible(openMenu);
         openMenu.onClick = [this]() { openIOMenuWindow(); };
@@ -167,6 +162,10 @@ public:
 
     void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override
     {
+        tunerWritePosition = 0;
+        currentSampleRate = sampleRate;
+        tunerInputBuffer.setSize(1, 4096); // mono buffer for pitch detection
+        tunerInputBuffer.clear();
         juce::dsp::ProcessSpec spec;
         spec.sampleRate = sampleRate;
         spec.maximumBlockSize = samplesPerBlockExpected;
@@ -180,7 +179,91 @@ public:
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override
     {
         juce::dsp::AudioBlock<float> block(*bufferToFill.buffer);
+        if (presetSelector.getSelectedId() == 4) // "Tuner" selected
+        {
+            auto* inputBuffer = bufferToFill.buffer;
+            const float* in = inputBuffer->getReadPointer(0);
+            int newSamples = inputBuffer->getNumSamples();
+        
+            // Resize tuner buffer if needed (safety)
+            if (tunerInputBuffer.getNumSamples() < 4096)
+                tunerInputBuffer.setSize(1, 4096);
+        
+            // Append incoming audio to tuner buffer (rolling window)
+            int bufferSize = tunerInputBuffer.getNumSamples();
+            int remainingSpace = bufferSize - tunerWritePosition;
+            int copyAmount = juce::jmin(newSamples, remainingSpace);
 
+            tunerInputBuffer.copyFrom(0, tunerWritePosition, in, copyAmount);
+            tunerWritePosition += copyAmount;
+
+            // Wrap around (circular buffer)
+            if (tunerWritePosition >= bufferSize)
+                tunerWritePosition = 0;
+        
+            float inputRMS = inputBuffer->getRMSLevel(0, 0, newSamples);
+            if (inputRMS > 0.01f)
+            {
+                // Use only the first 2048 samples for pitch detection
+                float workingData[2048];
+                int start = (tunerWritePosition >= 2048) ? (tunerWritePosition - 2048) : (4096 + tunerWritePosition - 2048);
+                for (int i = 0; i < 2048; ++i)
+                {
+                    workingData[i] = tunerInputBuffer.getSample(0, (start + i) % 4096);
+                }
+                int detectSize = 2048;
+        
+                // Calculate dynamic clipping threshold
+                float threshold = juce::jlimit(0.02f, 0.2f, inputRMS * 0.6f);
+                centerClip(workingData, detectSize, threshold);
+        
+                // Optional: Apply low-pass filter to clean signal
+                juce::IIRFilter lowpass;
+                lowpass.setCoefficients(juce::IIRCoefficients::makeLowPass(currentSampleRate, 600.0f));
+                lowpass.processSamples(workingData, detectSize);
+        
+                // Detect pitch and update tuner
+                float pitch = detectPitchYIN(workingData, detectSize, currentSampleRate);
+
+                // Only process if pitch is in valid range
+                if (pitch > 40.0f && pitch < 1200.0f)
+                {
+                    if (std::abs(pitch - lastRawPitch) < pitchTolerance)
+                    {
+                        ++stableFrameCount;
+                    }
+                    else
+                    {
+                        stableFrameCount = 0;
+                    }
+
+                    lastRawPitch = pitch;
+
+                    // Only update displayed pitch after N stable frames
+                    if (stableFrameCount >= pitchLockThreshold)
+                    {
+                        lastStablePitch = pitch;
+                    }
+                }
+                else
+                {
+                    stableFrameCount = 0;
+                }
+
+                smoothedPitch.setTargetValue(lastStablePitch);
+                tunerDisplay.setFrequency(smoothedPitch.getNextValue());
+
+            }
+            else
+            {
+                tunerDisplay.setFrequency(0.0f);
+            }
+        
+            // Mute amp output during tuning
+            inputBuffer->clear();
+            return;
+        }
+        
         auto* buffer = bufferToFill.buffer;
         float inputRMS = buffer->getRMSLevel(0, bufferToFill.startSample, bufferToFill.numSamples);
         smoothedInput.setTargetValue(inputRMS);
@@ -256,10 +339,18 @@ public:
         outputMeterLabel.setBounds(240, 630, 200, 20);
         presetSelector.setBounds(10, 10, 300, 30);
 
+        tunerDisplay.setBounds(490, 260, 300, 200);
     }
 
 private:
 
+    int tunerWritePosition = 0;
+    float lastStablePitch = 0.0f;
+    float lastRawPitch = 0.0f;
+    int stableFrameCount = 0;
+    const int pitchLockThreshold = 5; // Number of frames before we trust the new pitch
+    const float pitchTolerance = 3.0f; // Hz difference allowed between frames
+    
     double inputLevel = 0.0f;
     double outputLevel = 0.0f;
     juce::ProgressBar inputMeter { inputLevel };
@@ -276,9 +367,10 @@ private:
     ToneStack eq;
     IRProcessor irProcessor;
 
-    juce::TextButton preset1Button;
-    juce::TextButton preset2Button;
-    juce::TextButton preset3Button;
+    TunerComponent tunerDisplay;
+    juce::SmoothedValue<float> smoothedPitch;
+    double currentSampleRate = 44100.0;
+    juce::AudioBuffer<float> tunerInputBuffer;
 
     juce::ComboBox cabinetIrSelector;
     juce::Array<juce::File> cabinetIrFiles;
@@ -300,6 +392,64 @@ private:
 
     float gain = 1.0f;
     float outputGain = 1.0f;
+
+    float detectPitchYIN(const float* buffer, int numSamples, float sampleRate)
+    {
+        const int maxLag = numSamples / 2;
+        std::vector<float> difference(maxLag);
+        std::vector<float> cumulativeDifference(maxLag);
+
+        for (int tau = 1; tau < maxLag; ++tau)
+        {
+            float sum = 0.0f;
+            for (int i = 0; i < maxLag; ++i)
+            {
+                float diff = buffer[i] - buffer[i + tau];
+                sum += diff * diff;
+            }
+            difference[tau] = sum;
+        }
+
+        cumulativeDifference[0] = 1.0f;
+        float runningSum = 0.0f;
+        for (int tau = 1; tau < maxLag; ++tau)
+        {
+            runningSum += difference[tau];
+            cumulativeDifference[tau] = difference[tau] * tau / runningSum;
+        }
+
+        const float threshold = 0.1f;
+        int bestTau = -1;
+        for (int tau = 2; tau < maxLag; ++tau)
+        {
+            if (cumulativeDifference[tau] < threshold)
+            {
+                while (tau + 1 < maxLag && cumulativeDifference[tau + 1] < cumulativeDifference[tau])
+                ++tau;
+                bestTau = tau;
+                break;
+            }
+        }
+
+        if (bestTau != -1)
+            return sampleRate / bestTau;
+
+        return 0.0f;
+    }
+
+
+    void centerClip(float* buffer, int numSamples, float threshold = 0.1f)
+    {
+        for (int i = 0; i < numSamples; ++i)
+        {
+            if (buffer[i] > threshold)
+                buffer[i] -= threshold;
+            else if (buffer[i] < -threshold)
+                buffer[i] += threshold;
+            else
+                buffer[i] = 0.0f;
+        }
+    }
 
     void openIOMenuWindow()
     {
@@ -341,6 +491,34 @@ private:
 
     void setPreset(int index)
     {
+        if (index == 3)  // Tuner is index 3 (0-based)
+        {
+            tunerDisplay.setVisible(true);
+
+            // Optionally disable audio processing
+            gain = 0.0f;
+            outputGain = 0.0f;
+
+            // Hide or disable other UI components if you like:
+            inputGainSlider.setVisible(false);
+            outputGainSlider.setVisible(false);
+            lowQSlider.setVisible(false);
+            midGainSlider.setVisible(false);
+            highGainSlider.setVisible(false);
+            reverbGainSlider.setVisible(false);
+
+            return;
+        }
+        else
+        {
+            tunerDisplay.setVisible(false);
+            inputGainSlider.setVisible(true);
+            outputGainSlider.setVisible(true);
+            lowQSlider.setVisible(true);
+            midGainSlider.setVisible(true);
+            highGainSlider.setVisible(true);
+            reverbGainSlider.setVisible(true);
+        }
         if (index < 0 || index >= 3) return;
         const Preset& p = presets[index];
 
