@@ -603,12 +603,20 @@ private:
         else
         {
             tunerDisplay.setVisible(false);
+
             inputGainSlider.setVisible(true);
             outputGainSlider.setVisible(true);
             lowQSlider.setVisible(true);
             midGainSlider.setVisible(true);
             highGainSlider.setVisible(true);
             reverbGainSlider.setVisible(true);
+        
+            inputGainLabel.setVisible(true);
+            outputGainLabel.setVisible(true);
+            lowQLabel.setVisible(true);
+            midGainLabel.setVisible(true);
+            highGainLabel.setVisible(true);
+            reverbGainLabel.setVisible(true);
         }
         if (index < 0 || index >= 3) return;
         const Preset& p = presets[index];
@@ -646,6 +654,7 @@ private:
         highGainSlider.setRange(p.high.min, p.high.max, 0.1);
         highGainSlider.setValue(p.high.default);
         highGainLabel.setText("High Gain (dB) - " + juce::String(p.high.frequency) + " Hz", juce::dontSendNotification);
+        repaint();
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
