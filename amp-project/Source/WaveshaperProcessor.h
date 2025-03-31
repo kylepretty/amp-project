@@ -5,14 +5,6 @@ static float softClip(float sample) {
     return sample / (std::abs(sample) + 1.0f);
 }
 
-static float hardClip(float sample) {
-    return std::max(-1.0f, std::min(1.0f, sample));
-}
-
-static float tanhClip(float sample) {
-    return std::tanh(sample);
-}
-
 class WaveshaperProcessor {
 public:
     WaveshaperProcessor() {
