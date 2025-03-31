@@ -48,7 +48,7 @@ public:
         presetSelector.addItem("Tuner", 4); 
 
         presetSelector.onChange = [this]() {
-            int selectedIndex = presetSelector.getSelectedId() - 1; // Presets are 0-indexed
+            int selectedIndex = presetSelector.getSelectedId() - 1;
             setPreset(selectedIndex);
         };
 
@@ -188,10 +188,8 @@ public:
         highGainSlider.setTextValueSuffix(" dB");
         reverbGainSlider.setTextValueSuffix(" dB");
 
-        // Ensure profiles directory exists
         profileManager.getProfilesDirectory().createDirectory();
 
-        // Load default profile if available, otherwise set preset 0
         juce::File configFile = profileManager.getConfigFile();
         if (configFile.existsAsFile())
         {
@@ -234,7 +232,7 @@ public:
     {
         tunerWritePosition = 0;
         currentSampleRate = sampleRate;
-        tunerInputBuffer.setSize(1, 4096); // mono buffer for pitch detection
+        tunerInputBuffer.setSize(1, 4096);
         tunerInputBuffer.clear();
         juce::dsp::ProcessSpec spec;
         spec.sampleRate = sampleRate;
@@ -249,17 +247,15 @@ public:
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override
     {
         juce::dsp::AudioBlock<float> block(*bufferToFill.buffer);
-        if (presetSelector.getSelectedId() == 4) // "Tuner" selected
+        if (presetSelector.getSelectedId() == 4)
         {
             auto* inputBuffer = bufferToFill.buffer;
             const float* in = inputBuffer->getReadPointer(0);
             int newSamples = inputBuffer->getNumSamples();
         
-            // Resize tuner buffer if needed (safety)
             if (tunerInputBuffer.getNumSamples() < 4096)
                 tunerInputBuffer.setSize(1, 4096);
         
-            // Append incoming audio to tuner buffer (rolling window)
             int bufferSize = tunerInputBuffer.getNumSamples();
             int remainingSpace = bufferSize - tunerWritePosition;
             int copyAmount = juce::jmin(newSamples, remainingSpace);
@@ -267,14 +263,12 @@ public:
             tunerInputBuffer.copyFrom(0, tunerWritePosition, in, copyAmount);
             tunerWritePosition += copyAmount;
 
-            // Wrap around (circular buffer)
             if (tunerWritePosition >= bufferSize)
                 tunerWritePosition = 0;
         
             float inputRMS = inputBuffer->getRMSLevel(0, 0, newSamples);
             if (inputRMS > 0.01f)
             {
-                // Use only the first 2048 samples for pitch detection
                 float workingData[2048];
                 int start = (tunerWritePosition >= 2048) ? (tunerWritePosition - 2048) : (4096 + tunerWritePosition - 2048);
                 for (int i = 0; i < 2048; ++i)
@@ -283,19 +277,15 @@ public:
                 }
                 int detectSize = 2048;
         
-                // Calculate dynamic clipping threshold
                 float threshold = juce::jlimit(0.02f, 0.2f, inputRMS * 0.6f);
                 centerClip(workingData, detectSize, threshold);
         
-                // Optional: Apply low-pass filter to clean signal
                 juce::IIRFilter lowpass;
                 lowpass.setCoefficients(juce::IIRCoefficients::makeLowPass(currentSampleRate, 600.0f));
                 lowpass.processSamples(workingData, detectSize);
         
-                // Detect pitch and update tuner
                 float pitch = detectPitchYIN(workingData, detectSize, currentSampleRate);
 
-                // Only process if pitch is in valid range
                 if (pitch > 40.0f && pitch < 1200.0f)
                 {
                     if (std::abs(pitch - lastRawPitch) < pitchTolerance)
@@ -309,7 +299,6 @@ public:
 
                     lastRawPitch = pitch;
 
-                    // Only update displayed pitch after N stable frames
                     if (stableFrameCount >= pitchLockThreshold)
                     {
                         lastStablePitch = pitch;
@@ -329,7 +318,6 @@ public:
                 tunerDisplay.setFrequency(0.0f);
             }
         
-            // Mute amp output during tuning
             inputBuffer->clear();
             return;
         }
@@ -372,13 +360,11 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        // Draw background
         if (backgroundTexture.isValid())
             g.drawImage(backgroundTexture, getLocalBounds().toFloat());
         else
             g.fillAll(juce::Colours::darkslategrey); // fallback color
     
-        // Draw tuner panel if tuner is visible
         if (tunerDisplay.isVisible())
         {
             auto bounds = tunerDisplay.getBounds().toFloat().expanded(10.0f);
@@ -394,51 +380,52 @@ public:
 
     void resized() override
     {
-        int sliderWidth = 200;
+        int sliderWidth = 150;
         int labelBoxWidth = 160;
         int labelBoxHeight = 24;
         int labelSpacing = 10;
         int columnSpacing = 380;
-        int rowSpacing = 220;
+        int rowSpacing = 170;
         int startX = 200;
-        int startY = 100;
+        int startY = 105;
     
         // LEFT COLUMN
-        inputGainSlider.setBounds(startX, startY, sliderWidth, sliderWidth);
+        inputGainSlider.setBounds(startX, startY + rowSpacing, sliderWidth, sliderWidth);
         inputGainLabel.setBounds(startX - labelBoxWidth - labelSpacing,
-                                 startY + sliderWidth / 2 - labelBoxHeight / 2,
+                                 startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
                                  labelBoxWidth, labelBoxHeight);
-    
-        outputGainSlider.setBounds(startX, startY + rowSpacing, sliderWidth, sliderWidth);
-        outputGainLabel.setBounds(startX - labelBoxWidth - labelSpacing,
-                                  startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
-                                  labelBoxWidth, labelBoxHeight);
     
         // MIDDLE COLUMN
         int midX = startX + columnSpacing;
+
+        lowQSlider.setBounds(midX, startY, sliderWidth, sliderWidth);
+        lowQLabel.setBounds(midX - labelBoxWidth - labelSpacing,
+            startY + sliderWidth / 2 - labelBoxHeight / 2,
+            labelBoxWidth, labelBoxHeight);
+
     
-        midGainSlider.setBounds(midX, startY, sliderWidth, sliderWidth);
+        midGainSlider.setBounds(midX, startY + rowSpacing, sliderWidth, sliderWidth);
         midGainLabel.setBounds(midX - labelBoxWidth - labelSpacing,
-                               startY + sliderWidth / 2 - labelBoxHeight / 2,
+                               startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
                                labelBoxWidth, labelBoxHeight);
     
-        highGainSlider.setBounds(midX, startY + rowSpacing, sliderWidth, sliderWidth);
+        highGainSlider.setBounds(midX, startY + 2*rowSpacing, sliderWidth, sliderWidth);
         highGainLabel.setBounds(midX - labelBoxWidth - labelSpacing,
-                                startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
+                                startY + 2*rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
                                 labelBoxWidth, labelBoxHeight);
     
         // RIGHT COLUMN
         int rightX = midX + columnSpacing;
-    
-        lowQSlider.setBounds(rightX, startY, sliderWidth, sliderWidth);
-        lowQLabel.setBounds(rightX - labelBoxWidth - labelSpacing,
-                            startY + sliderWidth / 2 - labelBoxHeight / 2,
-                            labelBoxWidth, labelBoxHeight);
-    
-        reverbGainSlider.setBounds(rightX, startY + rowSpacing, sliderWidth, sliderWidth);
+
+        reverbGainSlider.setBounds(rightX, startY + rowSpacing/2, sliderWidth, sliderWidth);
         reverbGainLabel.setBounds(rightX - labelBoxWidth - labelSpacing,
-                                  startY + rowSpacing + sliderWidth / 2 - labelBoxHeight / 2,
+                                  startY + rowSpacing/2 + sliderWidth / 2 - labelBoxHeight / 2,
                                   labelBoxWidth, labelBoxHeight);
+
+        outputGainSlider.setBounds(rightX, startY + rowSpacing*3/2, sliderWidth, sliderWidth);
+        outputGainLabel.setBounds(rightX - labelBoxWidth - labelSpacing,
+            startY + rowSpacing*3/2 + sliderWidth / 2 - labelBoxHeight / 2,
+            labelBoxWidth, labelBoxHeight);
     
         // TOP MENU
         int menuY = 10;
@@ -449,12 +436,12 @@ public:
         profilesButton.setBounds(275, menuY, 100, 30);
     
         // METERS (bottom)
-        inputMeter.setBounds(20, 650, 200, 20);
-        outputMeter.setBounds(240, 650, 200, 20);
-        inputMeterLabel.setBounds(20, 630, 200, 20);
-        outputMeterLabel.setBounds(240, 630, 200, 20);
+        inputMeter.setBounds(420, 690, 200, 20);
+        outputMeter.setBounds(660, 690, 200, 20);
+        inputMeterLabel.setBounds(420, 665, 200, 20);
+        outputMeterLabel.setBounds(660, 665, 200, 20);
     
-        // Tuner (if visible)
+        // Tuner
         tunerDisplay.setBounds(440, 200, 420, 280);
     }
     
@@ -469,8 +456,8 @@ private:
     float lastStablePitch = 0.0f;
     float lastRawPitch = 0.0f;
     int stableFrameCount = 0;
-    const int pitchLockThreshold = 5; // Number of frames before we trust the new pitch
-    const float pitchTolerance = 3.0f; // Hz difference allowed between frames
+    const int pitchLockThreshold = 5;
+    const float pitchTolerance = 3.0f;
     
     double inputLevel = 0.0f;
     double outputLevel = 0.0f;
@@ -521,12 +508,10 @@ private:
         label.setJustificationType(juce::Justification::centred);
         label.setFont(juce::Font("Arial", 15.0f, juce::Font::bold));
         
-        // Make it opaque with dark background
         label.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.6f));
         label.setColour(juce::Label::textColourId, juce::Colours::white);
         label.setColour(juce::Label::outlineColourId, juce::Colours::darkgrey);
     
-        // Optional: enable border radius if you want rounded corners
         label.setBorderSize(juce::BorderSize<int>(4)); // top/bottom/left/right padding
     }
 
@@ -630,16 +615,14 @@ private:
 
     void setPreset(int index)
     {
-        if (index == 3)  // Tuner is index 3 (0-based)
+        if (index == 3)
         {
             tunerDisplay.setVisible(true);
             repaint();
 
-            // Optionally disable audio processing
             gain = 0.0f;
             outputGain = 0.0f;
 
-            // Hide or disable other UI components if you like:
             inputGainSlider.setVisible(false);
             outputGainSlider.setVisible(false);
             lowQSlider.setVisible(false);
